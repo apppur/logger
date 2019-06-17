@@ -37,9 +37,11 @@
 #endif
 
 #include "spdlog/spdlog.h"
+#include "spdlog/async.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/sinks/daily_file_sink.h"
+#include "spdlog/sinks/rotating_file_sink.h"
 
 static bool createDirectory(const char *dir)
 {
@@ -87,11 +89,18 @@ private:
 		consoleSink->set_pattern("[%m-%d %H:%M:%S.%e][%^%L%$][thread:%t]  %v");
 		sinkList.push_back(consoleSink);
 #endif
-		auto basicSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/basicSink.txt");
+		auto basicSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/basicSink.log");
 		basicSink->set_level(spdlog::level::debug);
 		basicSink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%5l%$][thread:%t]  %v");
 		sinkList.push_back(basicSink);
-		m_logger = std::make_shared<spdlog::logger>("both", begin(sinkList), end(sinkList));
+
+        auto rotating = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/rotatingSink.log", 1024 * 1024, 5, false);
+		rotating->set_level(spdlog::level::debug);
+		rotating->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%5l%$][thread:%t]  %v");
+		sinkList.push_back(rotating);
+
+        spdlog::init_thread_pool(8192, 1);
+		m_logger = std::make_shared<spdlog::async_logger>("both", begin(sinkList), end(sinkList), spdlog::thread_pool());
 		//register it if you need to access it globally
 		spdlog::register_logger(m_logger);
 
@@ -118,7 +127,7 @@ private:
 	Logger& operator=(const Logger&) = delete;
 
 private:
-	std::shared_ptr<spdlog::logger> m_logger;
+	std::shared_ptr<spdlog::async_logger> m_logger;
 };
 
 #define LOG_TRACE(msg, ...) Logger::GetInstance().GetLogger()->trace(SUFFIX(msg), ##__VA_ARGS__)
