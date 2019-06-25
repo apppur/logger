@@ -12,6 +12,8 @@
 #include <unistd.h>
 #endif
 #include <iostream>
+#include <sstream>
+#include <string>
 
 #ifdef _WIN32
 #define __FILENAME__ (strrchr(__FILE__, '\\') ? (strrchr(__FILE__, '\\') + 1):__FILE__)
@@ -42,6 +44,32 @@
 #include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/sinks/daily_file_sink.h"
 #include "spdlog/sinks/rotating_file_sink.h"
+
+template <typename T>
+static std::string to_string(const T& n)
+{
+    std::ostringstream stm;
+    stm << n;
+    return stm.str();
+}
+
+static std::string getHomeDirectory() 
+{
+#ifdef _WIN32
+    char* homeEnv = getenv("HOME");
+    std::string homeDir;
+    if (homeEnv == nullptr)
+    {
+        homeDir.append(getpwuid(getuid())->pw_dir);
+    } else 
+    {
+        homeDir.append(homeEnv);
+    }
+#else
+    std::string homeDir(getenv("HOME"));
+#endif
+    return homeDir;
+}
 
 static bool createDirectory(const char *dir)
 {
@@ -74,6 +102,14 @@ public:
 	}
 
 	auto GetLogger() { return m_logger; }
+
+    void SetErrorLevel() {
+		m_logger->set_level(spdlog::level::err);
+    }
+
+    void SetInfoLevel() {
+		m_logger->set_level(spdlog::level::debug);
+    }
 
 private:
 	Logger() {
@@ -129,6 +165,8 @@ private:
 private:
 	std::shared_ptr<spdlog::async_logger> m_logger;
 };
+
+#define ALOG_LOGGER Logger::GetInstance()
 
 #define LOG_TRACE(msg, ...) Logger::GetInstance().GetLogger()->trace(SUFFIX(msg), ##__VA_ARGS__)
 #define LOG_DEBUG(msg, ...) Logger::GetInstance().GetLogger()->debug(SUFFIX(msg), ##__VA_ARGS__)
